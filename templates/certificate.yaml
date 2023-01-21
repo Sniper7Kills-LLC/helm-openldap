@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}
+spec:
+  commonName: ldap.{{ .Values.environment.LDAP_DOMAIN }}
+  secretName: {{ include "helm-openldap.fullname" . }}-certificate
+  dnsNames:
+    - ldap.{{ .Values.environment.LDAP_DOMAIN }}
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer

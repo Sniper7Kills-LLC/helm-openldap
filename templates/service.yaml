@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}
+  labels:
+    {{- include "helm-openldap.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.ldapPort }}
+      targetPort: ldap
+      protocol: TCP
+      name: ldap
+    - port: {{ .Values.service.ldapsPort }}
+      targetPort: ldaps
+      protocol: TCP
+      name: ldaps
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "helm-openldap.selectorLabels" . | nindent 4 }}

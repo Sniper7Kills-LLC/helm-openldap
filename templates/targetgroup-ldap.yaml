@@ -1,0 +1,10 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}-ldap
+spec:
+  targetType: ip
+  serviceRef:
+    name: {{ include "helm-openldap.fullname" . }}
+    port: ldap
+  targetGroupARN: {{ .Values.targetGroups.ldapARN }}

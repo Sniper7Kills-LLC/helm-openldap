@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}-permissions
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: {{ include "helm-openldap.fullname" . }}-ldap-permissions
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: post-install-job
+          image: "alpine"
+          command: ["/bin/sh","/permissions/permissions-install.sh"]
+          volumeMounts:
+            - name: jobs
+              mountPath: /permissions
+      volumes:
+        - name: jobs
+          configMap:
+            name: {{ include "helm-openldap.fullname" . }}-jobs
+        

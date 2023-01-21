@@ -1,0 +1,104 @@
+#
+# A ConfigMap spec for openldap slapd that map directly to env variables in the Pod.
+# List of environment variables supported is from the docker image:
+# https://github.com/osixia/docker-openldap#beginner-guide
+# Note that passwords are defined as secrets
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}-ldifs
+  labels:
+    {{- include "helm-openldap.labels" . | nindent 4 }}
+data:
+  00-root.ldif: |-
+    # Root creation
+    dn: dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    objectClass: dcObject
+    objectClass: organization
+    o: Sniper7Kills LLC
+
+    # Groups OU
+    dn: ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    objectclass: organizationalUnit
+    objectclass: top
+    ou: Groups
+
+    # Accounts OU
+    dn: ou=Accounts,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    objectclass: organizationalUnit
+    objectclass: top
+    ou: Accounts
+
+    # Service Accounts OU
+    dn: ou=Service,ou=Accounts,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    objectclass: organizationalUnit
+    objectclass: top
+    ou: Service Accounts
+
+    # User Accounts OU
+    dn: ou=Users,ou=Accounts,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    objectclass: organizationalUnit
+    objectclass: top
+    ou: Users
+  01-default-groups.ldif: |-
+    dn: cn=Domain Admins,ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    cn: Domain Admins
+    gidnumber: 500
+    objectclass: posixGroup
+    objectclass: top
+
+    dn: cn=Domain Services,ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    cn: Domain Services
+    gidnumber: 501
+    objectclass: posixGroup
+    objectclass: top
+    memberuid: freepbx
+    memberuid: mail
+
+    dn: cn=Domain Users,ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    cn: Domain Users
+    gidnumber: 502
+    objectclass: posixGroup
+    objectclass: top
+
+    
+  02-default-service-accounts.ldif: |-
+    dn: uid=authentik,ou=Service,ou=Accounts,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    cn: Authentik
+    sn: Service
+    uid: authentik
+    userpassword: {CRYPT}{{ bcrypt .Values.passwords.authentik }}
+    gidnumber: 501
+    uidnumber: 5001
+    homedirectory: /home/mail
+    objectclass: inetOrgPerson
+    objectclass: posixAccount
+    objectclass: shadowAccount
+    objectclass: top
+
+    dn: uid=mail,ou=Service,ou=Accounts,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    cn: Mail
+    sn: Service
+    uid: mail
+    userpassword: {CRYPT}{{ bcrypt .Values.passwords.mail }}
+    gidnumber: 501
+    uidnumber: 5001
+    homedirectory: /home/mail
+    objectclass: inetOrgPerson
+    objectclass: posixAccount
+    objectclass: shadowAccount
+    objectclass: top
+
+    dn: uid=freepbx,ou=Service,ou=Accounts,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}
+    cn: FreePBX
+    sn: Service
+    uid: freepbx
+    userpassword: {CRYPT}{{ bcrypt .Values.passwords.freepbx }}
+    gidnumber: 501
+    uidnumber: 5002
+    homedirectory: /home/freepbx
+    objectclass: inetOrgPerson
+    objectclass: posixAccount
+    objectclass: shadowAccount
+    objectclass: top

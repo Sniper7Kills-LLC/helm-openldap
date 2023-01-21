@@ -1,0 +1,125 @@
+# Default values for helm-openldap.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  openldap:
+    repository: bitnami/openldap
+    tag: "latest"
+  nginx:
+    repository: bitnami/nginx
+    tag: "latest"
+  php:
+    repository: sniper7kills/php-fpm
+    tag: "latest"
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+
+passwords:
+  authentik: "authentikpassword"
+  mail: "mailpassword"
+  freepbx: "freepbxpassword"
+
+targetGroups:
+  ldapARN: arn:aws:elasticloadbalancing:us-east-1:609572023207:targetgroup/ldap-targetgroup/42af00e1f91f6ccf
+  ldapsARN: arn:aws:elasticloadbalancing:us-east-1:609572023207:targetgroup/ldaps-targetgroup/37ef1dfdb3c4a749
+
+environment:
+  LDAP_PORT_NUMBER: "1389"
+  LDAP_LDAPS_PORT_NUMBER: "1636"
+  LDAP_DOMAIN: "example.org"
+  LDAP_ADMIN_USERNAME: "admin"
+  LDAP_ADMIN_PASSWORD: "adminpassword"
+  LDAP_CONFIG_ADMIN_ENABLED: "yes"
+  LDAP_CONFIG_ADMIN_USERNAME: "admin"
+  LDAP_CONFIG_ADMIN_PASSWORD: "configpassword"
+  LDAP_ADD_SCHEMAS: "yes"
+  LDAP_EXTRA_SCHEMAS: "cosine,inetorgperson,nis"
+  LDAP_SKIP_DEFAULT_TREE: "yes"
+  LDAP_CUSTOM_LDIF_DIR: "/ldifs"
+  LDAP_CUSTOM_SCHEMA_DIR: "/schemas"
+  LDAP_ALLOW_ANON_BINDING: "no"
+  LDAP_ENABLE_TLS: "yes"
+  LDAP_TLS_CERT_FILE: "/opt/bitnami/openldap/certs/openldap.crt"
+  LDAP_TLS_KEY_FILE: "/opt/bitnami/openldap/certs/openldap.key"
+  LDAP_TLS_CA_FILE: "/opt/bitnami/openldap/certs/openldap.crt"
+
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1001
+  runAsNonRoot: true
+
+securityContext:
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  ldapPort: 389
+  ldapsPort: 636
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: # {}
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/group.name: app-lb
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}, {"HTTP":80}]'
+    alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: ldapadmin.sniper7kills.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

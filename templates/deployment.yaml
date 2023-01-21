@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}
+  labels:
+    {{- include "helm-openldap.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "helm-openldap.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "helm-openldap.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "helm-openldap.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.openldap.repository }}:{{ .Values.image.openldap.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ldap
+              containerPort: {{ .Values.environment.LDAP_PORT_NUMBER }}
+              protocol: TCP
+            - name: ldaps
+              containerPort: {{ .Values.environment.LDAP_LDAPS_PORT_NUMBER }}
+              protocol: TCP
+          volumeMounts:
+            - name: openldap-data
+              mountPath: /bitnami
+            - name: schemas
+              mountPath: {{ .Values.environment.LDAP_CUSTOM_SCHEMA_DIR }}
+            - name: ldifs
+              mountPath: {{ .Values.environment.LDAP_CUSTOM_LDIF_DIR }}
+            - name: certs
+              subPath: tls.crt
+              mountPath: /opt/bitnami/openldap/certs/openldap.crt
+              readOnly: true
+            - name: certs
+              subPath: tls.key
+              mountPath: /opt/bitnami/openldap/certs/openldap.key
+              readOnly: true
+          envFrom:
+            - configMapRef:
+                name: {{ include "helm-openldap.fullname" . }}-env
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: {{ .Chart.Name }}-nginx
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.nginx.repository }}:{{ .Values.image.nginx.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: nginx
+              mountPath: /opt/bitnami/nginx/conf/server_blocks/yourapp.conf
+              subPath: app.conf
+            - name: nginx
+              mountPath: /app/info.php
+              subPath: info.php
+            - name: phpldapadmin-data
+              mountPath: /app
+            - name: phpldapadmin
+              mountPath: /app/config/config.php
+              subPath: config.php
+            - name: phpldapadmin
+              mountPath: /app/templates/creation
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: {{ .Chart.Name }}-php-fpm
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.php.repository }}:{{ .Values.image.php.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+            - name: nginx
+              mountPath: /app/info.php
+              subPath: info.php
+            - name: phpldapadmin-data
+              mountPath: /app
+            - name: phpldapadmin
+              mountPath: /app/config/config.php
+              subPath: config.php
+            - name: phpldapadmin
+              mountPath: /app/templates/creation
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: openldap-data
+          persistentVolumeClaim:
+            claimName: {{ include "helm-openldap.fullname" . }}-data
+        - name: phpldapadmin-data
+          persistentVolumeClaim:
+            claimName: {{ include "helm-openldap.fullname" . }}-phpldapadmin
+        - name: schemas
+          configMap:
+            name: {{ include "helm-openldap.fullname" . }}-schemas
+        - name: phpldapadmin
+          configMap:
+            name: {{ include "helm-openldap.fullname" . }}-phpldapadmin
+        - name: ldifs
+          configMap:
+            name: {{ include "helm-openldap.fullname" . }}-ldifs
+        - name: certs
+          secret:
+            secretName: {{ include "helm-openldap.fullname" . }}-certificate
+        - name: nginx
+          configMap:
+            name: {{ include "helm-openldap.fullname" . }}-nginx

@@ -1,0 +1,65 @@
+#
+# A ConfigMap spec for openldap slapd that map directly to env variables in the Pod.
+# List of environment variables supported is from the docker image:
+# https://github.com/osixia/docker-openldap#beginner-guide
+# Note that passwords are defined as secrets
+#
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "helm-openldap.fullname" . }}-jobs
+  labels:
+    {{- include "helm-openldap.labels" . | nindent 4 }}
+data:
+  phpldapadmin-install.sh: |-
+    apk add curl
+
+    PHPLDAPADMIN_VERSION=1.2.6.4
+    curl -o phpldapadmin.tar.gz -SL https://github.com/leenooks/phpLDAPadmin/archive/${PHPLDAPADMIN_VERSION}.tar.gz
+    tar -xzf phpldapadmin.tar.gz --strip 1 -C /app
+
+  permissions-install.sh: |-
+    apk add openldap-clients netcat-openbsd
+    timeout=180 # 3 minutes in seconds
+    start_time=$(date +%s)
+
+    while :
+    do
+      nc -z {{ include "helm-openldap.fullname" . }} {{.Values.service.ldapPort }}
+      result=$?
+
+      current_time=$(date +%s)
+      elapsed_time=$((current_time - start_time))
+
+      if [ $result -eq 0 ]; then
+          echo "Port {{.Values.service.ldapPort }} on {{ include "helm-openldap.fullname" . }} is open!"
+          break
+      elif [ $elapsed_time -gt $timeout ]; then
+          echo "Timeout reached! Port {{.Values.service.ldapPort }} on {{ include "helm-openldap.fullname" . }} is not open."
+          break
+      else
+          sleep 1
+      fi
+    done
+
+    ldapmodify -H ldap://{{ include "helm-openldap.fullname" . }}:{{.Values.service.ldapPort }} -D cn={{ .Values.environment.LDAP_CONFIG_ADMIN_USERNAME }},cn=config -w {{ .Values.environment.LDAP_CONFIG_ADMIN_PASSWORD }} -f /permissions/00-permissions.ldif
+  00-permissions.ldif: |-
+    dn: olcDatabase={2}mdb,cn=config
+    changetype: modify
+    add: olcAccess
+    olcAccess: to attrs=userPassword 
+      by self write 
+      by set="[cn=Domain Services,ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}]/memberUid & user/uid" write
+      by set="[cn=Domain Admins,ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}]/memberUid & user/uid" write
+      by set="this/manager & user" write
+      by * read
+
+
+
+    dn: olcDatabase={2}mdb,cn=config
+    changetype: modify
+    add: olcAccess
+    olcAccess: to * 
+      by set="[cn=Domain Admins,ou=Groups,dc={{ .Values.environment.LDAP_DOMAIN | replace "." ",dc=" }}]/memberUid & user/uid" write
+      by set="this/manager & user" write
+      by * read
